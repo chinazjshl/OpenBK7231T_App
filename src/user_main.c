@@ -1,6 +1,7 @@
 #include "user_main.h"
-#include "lwip/api.h"
 #include "lwip/sockets.h"
+#include "wifi.h"
+#include "string.h"
 
 #define UDP_LISTEN_PORT 8899
 static int udp_sock = -1;
@@ -11,23 +12,45 @@ void udp_relay_task(void *pvParameters)
     char buf[64];
     int len;
 
+    // ========== 循环等待Wi‑Fi获取IP ==========
+    while (1)
+    {
+        uint32_t ip = WIFI_GetIPAddress();
+        if (ip != 0)
+        {
+            // 已经拿到IP，退出等待循环
+            break;
+        }
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+
+    // 创建UDP Socket
     udp_sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if(udp_sock < 0) vTaskDelete(NULL);
+    if (udp_sock < 0)
+    {
+        vTaskDelete(NULL);
+    }
 
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(UDP_LISTEN_PORT);
     server_addr.sin_addr.s_addr = INADDR_ANY;
-    bind(udp_sock, (struct sockaddr *)&server_addr, sizeof(server_addr));
 
-    while(1)
+    if (bind(udp_sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+    {
+        close(udp_sock);
+        vTaskDelete(NULL);
+    }
+
+    while (1)
     {
         struct sockaddr_in client;
         socklen_t cli_len = sizeof(client);
-        len = recvfrom(udp_sock, buf, sizeof(buf)-1, 0, (struct sockaddr *)&client, &cli_len);
-        if(len > 0)
+        len = recvfrom(udp_sock, buf, sizeof(buf)-1, 0,
+                       (struct sockaddr *)&client, &cli_len);
+
+        if (len > 0)
         {
-            buf[len] = 0;
-            // 指令判断，根据你插座继电器引脚自行修改
+            buf[len] = '\0';
             if(strstr(buf, "ON"))
             {
                 RELAY_SetState(1);
@@ -43,6 +66,6 @@ void udp_relay_task(void *pvParameters)
 
 void user_init(void)
 {
-    // OBK系统初始化完成后启动UDP任务
-    xTaskCreate(udp_relay_task, "udp_relay", 1024, NULL, 5, NULL);
+    // 启动后台任务，由任务内部等待Wi‑Fi就绪
+    xTaskCreate(udp_relay_task, "udp_relay", 2048, NULL, 5, NULL);
 }
