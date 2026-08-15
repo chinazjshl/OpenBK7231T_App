@@ -19,6 +19,7 @@ static void udp_server_thread(void *arg) {
     struct sockaddr_in server_addr, client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
     char rx_buffer[128];
+    char tx_buffer[64]; // 用于构造回复的字符串
 
     while (1) {
         sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
