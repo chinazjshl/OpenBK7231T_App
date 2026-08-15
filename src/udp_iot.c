@@ -55,6 +55,20 @@ static void udp_server_thread(void *arg) {
                     CHANNEL_Set(RELAY_CHANNEL, 0, 0);
                     //ADDLOGF_INFO("UDP command: OFF -> Relay %d opened", RELAY_CHANNEL);
                 }
+                // 新增：处理 STATUS 查询命令
+                else if (strncmp(rx_buffer, "STATUS", 6) == 0) {
+                    // 读取 Channel 当前的实际状态 (返回 1 为开，0 为关)
+                    int current_state = CHANNEL_Get(RELAY_CHANNEL);
+                    
+                    // 构造回复文本，比如 "STATUS:ON" 或 "STATUS:OFF"
+                    snprintf(tx_buffer, sizeof(tx_buffer), "STATUS:%s", current_state ? "ON" : "OFF");
+                    
+                    // 使用 sendto 将数据原路返回给 client_addr
+                    sendto(sock, tx_buffer, strlen(tx_buffer), 0, 
+                           (struct sockaddr *)&client_addr, client_addr_len);
+                           
+                    //ADDLOGF_INFO("UDP command: STATUS -> Replied: %s", tx_buffer);
+                }
             } else if (len < 0) {
                 // Socket 异常，跳出内层循环以重新创建 Socket
                 break; 
