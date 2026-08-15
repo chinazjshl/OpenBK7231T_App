@@ -1,4 +1,3 @@
-#include "user_main.h"
 #include "lwip/sockets.h"
 #include "wifi.h"
 #include "string.h"
@@ -12,13 +11,12 @@ void udp_relay_task(void *pvParameters)
     char buf[64];
     int len;
 
-    // ========== 循环等待Wi‑Fi获取IP ==========
+    // 循环等待Wi‑Fi获取IP
     while (1)
     {
         uint32_t ip = WIFI_GetIPAddress();
         if (ip != 0)
         {
-            // 已经拿到IP，退出等待循环
             break;
         }
         vTaskDelay(pdMS_TO_TICKS(500));
@@ -66,6 +64,5 @@ void udp_relay_task(void *pvParameters)
 
 void user_init(void)
 {
-    // 启动后台任务，由任务内部等待Wi‑Fi就绪
     xTaskCreate(udp_relay_task, "udp_relay", 2048, NULL, 5, NULL);
 }
