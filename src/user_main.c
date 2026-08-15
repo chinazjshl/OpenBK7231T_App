@@ -69,6 +69,8 @@ extern void WFI(void);
 #include "hal_adc.h"
 #endif
 
+#include "udp_iot.h"
+
 int g_secondsElapsed = 0;
 // open access point after this number of seconds
 int g_openAP = 0;
@@ -1682,7 +1684,8 @@ void Main_Init()
 	Main_Init_Delay();
 	// do things we want after TCP/IP stack is ready
 	Main_Init_After_Delay();
-
+	// 启动 UDP 监听线程
+    UDP_Server_Start();
 }
 
 #if PLATFORM_ESPIDF || PLATFORM_ESP8266 || PLATFORM_BL602 || PLATFORM_REALTEK \
