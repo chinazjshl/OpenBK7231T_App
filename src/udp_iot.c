@@ -1,6 +1,7 @@
 #include "lwip/sockets.h"
 #include "new_pins.h"
 #include "logging/logging.h"
+#include "udp_iot.h"
 
 #define UDP_LISTEN_PORT 8899
 // 假设你的继电器在 Web UI 中映射到了 Channel 1
