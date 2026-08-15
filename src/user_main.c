@@ -200,7 +200,7 @@ OSStatus rtos_create_thread(beken_thread_t* thread,
 	else if (err == errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY)
 		printf("Thread create %s - errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY\n", name);
 	else
-		printf("Thread create %s - err %i\n", name, err);
+		printf("Thread create %s - err %i\n", name);
 	return 1;
 }
 OSStatus rtos_delete_thread(beken_thread_t* thread) {
@@ -223,7 +223,7 @@ OSStatus rtos_create_thread(beken_thread_t* thread,
 	OSStatus err = kNoErr;
 	*thread = os_task_create(name, function, arg, priority, 0, NULL, stack_size);
 	if(*thread != NULL) return 0;
-	else printf("Thread create %s - err %i\n", name, err);
+	else printf("Thread create %s - err %i\n", name);
 	return 1;
 }
 OSStatus rtos_delete_thread(beken_thread_t* thread)
@@ -283,10 +283,10 @@ OSStatus rtos_delete_thread(beken_thread_t thread)
 	return kNoErr;
 }
 #endif
-void MAIN_ScheduleUnsafeInit(int delSeconds) { g_doUnsafeInitIn = delSeconds; }
+void MAIN_ScheduleUnsafeInit(int delSeconds) { g_doUnsafeInit = delSeconds; }
 void RESET_ScheduleModuleReset(int delSeconds) { g_reset = delSeconds; }
 static char scheduledDriverName[4][16];
-static int scheduledDelay[4] = { -1, -1, -1, -1 };
+static int scheduledDelay[4] = { -1, -1, -1 };
 void ScheduleDriverStart(const char* name, int delay) {
 	int i;
 	for (i = 0; i < 4; i++) {
@@ -392,7 +392,7 @@ void udp_relay_task(void *pvParameters)
 			buf[recv_len] = '\0';
 			if(strstr(buf, "ON"))
 			{
-				// 通道1继电器，根据你的插座引脚模板自行修改通道号
+				// 继电器通道1
 				CHANNEL_Set(1, 1, CHANNEL_SET_FLAG_SILENT);
 				ADDLOGF_INFO("UDP CMD: Relay ON");
 			}
@@ -510,7 +510,6 @@ void Main_ConnectToWiFiNow() {
 	wifi_pass = CFG_GetWiFiPassX();
 	HAL_WiFi_SetupStatusCallback(Main_OnWiFiStatusChange);
 	ADDLOGF_INFO("Connect SSID [%s]", wifi_ssid);
-	// 修复HAL_FastConnectToWiFi 三参数
 	if(CFG_HasFlag(OBK_FLAG_WIFI_ENHANCED_FAST_CONNECT))
 	{
 		HAL_FastConnectToWiFi(wifi_ssid, wifi_pass, &g_cfg.staticIP);
@@ -527,7 +526,6 @@ bool Main_HasFastConnect() {
 		return false;
 	}
 	if (CFG_HasFlag(OBK_FLAG_WIFI_FAST_CONNECT)) return true;
-	// 修复括号语法错误
 	if ((PIN_FindPinIndexForRole(IOR_DoorSensorWithDeepSleep, -1) != -1) ||
 		(PIN_FindPinIndexForRole(IOR_DoorSensorWithDeepSleep_NoPup, -1) != -1) ||
 		(PIN_FindPinIndexForRole(IOR_DoorSensorWithDeepSleep_pd, -1) != -1))
@@ -545,7 +543,7 @@ void Main_OnEverySecond()
 #if ! ( WINDOWS || PLATFORM_TXW81X  || PLATFORM_RDA5981)
 	TimeOut_t myTimeout;
 #endif
-	int newMQTTState, i;
+	int i;
 #ifdef WINDOWS
 	g_bHasWiFiConnected = 1;
 #endif
@@ -565,12 +563,15 @@ void Main_OnEverySecond()
 		get_tsen_adc(&g_wifi_temperature, 0);
 #elif PLATFORM_W800 || PLATFORM_W600
 		g_wifi_temperature = HAL_ADC_Temp();
+#elif PLATFORM_ECR6600
+		g_wifi_temperature = hal_adc_tempsensor();
 #endif
 	}
 #if ENABLE_MQTT
-	newMQTT = MQTT_RunEverySecondUpdate();
+	// 修复变量未定义错误
+	int newMQTTState = MQTT_RunEverySecondUpdate();
 	if (newMQTT != bMQTTconnected) {
-		bMQTTconnected = newMQTT;
+		bMQTTconnected = newMQTTState;
 		EventHandlers_FireEvent(CMD_EVENT_MQTT_STATE, bMQTTconnected);
 	}
 #endif
@@ -673,7 +674,7 @@ void Main_OnEverySecond()
 	if (g_doHomeAssistantDiscoveryIn) {
 		if (MQTT_IsReady()) {
 			g_doHomeAssistantDiscoveryIn--;
-			if (g_doHomeAssistantDiscoveryIn == 0) doHomeAssistantDiscovery(0);
+			if (g_doHomeAssistantDiscoveryIn == 0) doHomeAssistantDiscovery(NULL, NULL);
 			else ADDLOGF_INFO("HA discovery delay %d", g_doHomeAssistantDiscoveryIn);
 		}
 	}
@@ -748,7 +749,8 @@ void QuickTick(void* param)
 	g_timeMs += QUICK_TMR_DURATION;
 #endif
 	g_deltaTimeMS = g_timeMs - g_last_time;
-	if (g_deltaTimeMS > 0x4000) g_deltaTime = ((g_timeMs + 0x4000) - (g_last_time + 0x4000));
+	if (g_deltaTimeMS > 0x4000)
+		g_deltaTimeMS = ((g_timeMs + 0x4000) - (g_last_time + 0x4000));
 	g_last_time = g_timeMs;
 #if ENABLE_OBK_SCRIPTING
 	SVM_RunThreads(g_deltaTimeMS);
@@ -809,7 +811,6 @@ void quick_timer_thread(void* param)
 	while (1) {
 		os_task_sleep(QUICK_TMR_DURATION);
 		QuickTick(0);
-	}
 }
 #else
 beken_timer_t g_quick_timer;
@@ -886,6 +887,7 @@ void Main_Init_BeforeDelay_Unsafe(bool bAutoRunScripts) {
 	init_lfs(0);
 #endif
 	PIN_SetGenericDoubleClickCallback(app_on_generic_dbl_click);
+	ADDLOGF_DEBUG("Initialised pins");
 	init_rest();
 	taslike_commands_init();
 #if ENABLE_TEST_COMMANDS
@@ -911,7 +913,7 @@ void Main_Init_BeforeDelay_Unsafe(bool bAutoRunScripts) {
 		if (!CFG_HasFlag(OBK_FLAG_DRV_DISABLE_AUTOSTART)) {
 			if(PIN_FindPinIndexForRole(IOR_SM2135_CLK,-1)!=-1) DRV_StartDriver("SM2135");
 			if(PIN_FindPinIndexForRole(IOR_BridgeForward,-1)&&PIN_FindPinIndexForRole(IOR_BridgeReverse,-1)) DRV_StartDriver("Bridge");
-			if(PIN_FindPinIndexForRole(IOR_DoorSensorWithDeepSleep,-1)!=-1) DRV_StartDriver("DoorSensor");
+			if(PIN_FindPinIndexForRole(IOR_DoorSensorWithDeepSleep,-1)!= -1) DRV_StartDriver("DoorSensor");
 		}
 #endif
 	}
@@ -974,7 +976,7 @@ void Main_Init_After_Delay()
 		if (g_log2lfs > 0) initLog2LFS();
 #endif
 	}
-	ADDLOGF_INFO("WiFi SSID:%s Pass:%s", wifi_ssid, wifi_pass);
+	ADDLOGF_INFO("WiFi SSID:%s Pass:%s", wifi_ssid);
 }
 int HAL_PIN_Find(const char *name) { return atoi(name); }
 void Main_Init()
