@@ -13,7 +13,7 @@ static void udp_server_thread(void *arg) {
         rtos_delay_milliseconds(1000); // 没连上就每秒检查一次，不占用 CPU
     }
 
-    ADDLOGF_INFO("WiFi Connected! Starting UDP Server...");
+    //ADDLOGF_INFO("WiFi Connected! Starting UDP Server...");
   
     int sock;
     struct sockaddr_in server_addr, client_addr;
@@ -23,7 +23,7 @@ static void udp_server_thread(void *arg) {
     while (1) {
         sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         if (sock < 0) {
-            ADDLOGF_ERROR("UDP Server: socket creation failed");
+            //ADDLOGF_ERROR("UDP Server: socket creation failed");
             rtos_delay_milliseconds(1000);
             continue;
         }
@@ -33,13 +33,13 @@ static void udp_server_thread(void *arg) {
         server_addr.sin_port = htons(UDP_LISTEN_PORT);
 
         if (bind(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-            ADDLOGF_ERROR("UDP Server: bind failed on port %d", UDP_LISTEN_PORT);
+            //ADDLOGF_ERROR("UDP Server: bind failed on port %d", UDP_LISTEN_PORT);
             close(sock);
             rtos_delay_milliseconds(1000);
             continue;
         }
 
-        ADDLOGF_INFO("UDP Server listening on port %d", UDP_LISTEN_PORT);
+        //ADDLOGF_INFO("UDP Server listening on port %d", UDP_LISTEN_PORT);
 
         while (1) {
             int len = recvfrom(sock, rx_buffer, sizeof(rx_buffer) - 1, 0, 
@@ -50,10 +50,10 @@ static void udp_server_thread(void *arg) {
                 // 忽略可能存在的换行符，比对前缀指令
                 if (strncmp(rx_buffer, "ON", 2) == 0) {
                     CHANNEL_Set(RELAY_CHANNEL, 1, 0);
-                    ADDLOGF_INFO("UDP command: ON -> Relay %d closed", RELAY_CHANNEL);
+                    //ADDLOGF_INFO("UDP command: ON -> Relay %d closed", RELAY_CHANNEL);
                 } else if (strncmp(rx_buffer, "OFF", 3) == 0) {
                     CHANNEL_Set(RELAY_CHANNEL, 0, 0);
-                    ADDLOGF_INFO("UDP command: OFF -> Relay %d opened", RELAY_CHANNEL);
+                    //ADDLOGF_INFO("UDP command: OFF -> Relay %d opened", RELAY_CHANNEL);
                 }
             } else if (len < 0) {
                 // Socket 异常，跳出内层循环以重新创建 Socket
